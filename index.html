@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex : Rate Limiter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black  min-h-screen">
+    <!-- Hero Section -->
+    <header class="h-[90vh] flex items-center justify-center">
+        <div class="text-center px-6">
+            <h1 class="text-7xl md:text-9xl text-white font-bold tracking-wider mb-12" >Apex</h1>
+            <h2 class="text-2xl font-light tracking-widest text-neutral-400 mb-6">RATE LIMITER</h2>
+            <p class="text-neutral-500 flex items-center justify-center gap-2 mb-8">
+<!--                <span class="text-yellow-500">⚡</span>-->
+                <span>Single Node | Built in <span class="text-400">Go</span></span>
+            </p>
+            <div class="flex items-center justify-center gap-6 text-xs text-neutral-600 uppercase tracking-wider">
+                <span>• Token Bucket Algorithm</span>
+                <span>• HTTP Semantic Responses</span>
+                <span>• Regular Cleanups</span>
+                <span>• Per-Client Bucket</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-16">
+
+        <!-- Problem Section -->
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">What Problem Does This Solve?</h2>
+            <p class="text-neutral-300 mb-4">In real systems, allowing unlimited requests from a single client can:</p>
+            <ul class="space-y-2 text-neutral-400 ml-6">
+                <li>• Overload your server</li>
+                <li>• Cause unfair resource usage</li>
+                <li>• Enable abuse (DDoS, brute force, scraping)</li>
+            </ul>
+            <p class="text-neutral-300 mt-4">A rate limiter protects your service by <span class="text-white font-semibold">controlling how many requests a client can make over time</span>.</p>
+        </section>
+
+        <!-- Algorithm Section -->
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">Core Concept: Token Bucket Algorithm</h2>
+            <p class="text-neutral-300 mb-4">Each client (identified by IP) gets its own <span class="text-white font-semibold">token bucket</span>.</p>
+
+            <div class="bg-neutral-900 border border-neutral-800 rounded-lg p-6 mt-4">
+                <h3 class="text-lg font-medium text-white mb-3">How it works:</h3>
+                <div class="space-y-3 text-neutral-300">
+                    <p><span class="text-white">•</span> Each bucket has:</p>
+                    <div class="ml-6 space-y-1 text-neutral-400">
+                        <p>→ <span class="text-neutral-200">Capacity</span>: maximum number of tokens</p>
+                        <p>→ <span class="text-neutral-200">Refill rate</span>: tokens added per second</p>
+                    </div>
+                    <p><span class="text-white">•</span> Every request consumes tokens</p>
+                    <p><span class="text-white">•</span> If enough tokens exist → request allowed</p>
+                    <p><span class="text-white">•</span> If not → request rejected with <code class="bg-black px-2 py-1 rounded text-red-400">429 Too Many Requests</code></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture Section -->
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">High-Level Architecture</h2>
+            <div class="bg-neutral-900 border border-neutral-800 rounded-lg p-8 font-mono text-sm">
+                <div class="space-y-2 text-neutral-300">
+                    <div class="text-center">Client Request</div>
+                    <div class="text-center text-neutral-600">↓</div>
+                    <div class="text-center text-400">Rate Limiter Middleware (Apex)</div>
+                    <div class="text-center text-neutral-600">↓</div>
+                    <div class="text-center text-green-400">Token Bucket (per client IP)</div>
+                    <div class="text-center text-neutral-600">↓</div>
+                    <div class="text-center">Allow or Reject</div>
+                    <div class="text-center text-neutral-600">↓</div>
+                    <div class="text-center text-purple-400">HTTP Handler (Your Service)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Components Section -->
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">Important Components</h2>
+
+            <div class="space-y-6">
+                <!-- Limiter -->
+                <div class="border border-neutral-800 rounded-lg p-6 bg-neutral-900">
+                    <h3 class="text-xl font-medium text-white mb-3">1. Limiter</h3>
+                    <p class="text-neutral-300 mb-3">Manages all client buckets.</p>
+                    <pre class="bg-black p-4 rounded text-sm text-neutral-300 overflow-x-auto"><code>type Limiter struct {
+    buckets map[string]*TokenBucket
+    mutex   sync.Mutex
+}</code></pre>
+                    <ul class="mt-3 space-y-1 text-neutral-400 text-sm">
+                        <li>• One bucket per client key (IP)</li>
+                        <li>• Thread-safe access</li>
+                        <li>• Responsible for bucket creation and cleanup</li>
+                    </ul>
+                </div>
+
+                <!-- Token Bucket -->
+                <div class="border border-neutral-800 rounded-lg p-6 bg-neutral-900">
+                    <h3 class="text-xl font-medium text-white mb-3">2. TokenBucket</h3>
+                    <p class="text-neutral-300 mb-3">Represents rate limits for a single client.</p>
+                    <pre class="bg-black p-4 rounded text-sm text-neutral-300 overflow-x-auto"><code>type TokenBucket struct {
+    capacity       int
+    refillRate     int
+    tokens         int
+    lastRefillTime time.Time
+    lastSeen       time.Time
+    mutex          sync.Mutex
+}</code></pre>
+                </div>
+
+                <!-- Middleware -->
+                <div class="border border-neutral-800 rounded-lg p-6 bg-neutral-900">
+                    <h3 class="text-xl font-medium text-white mb-3">3. Middleware</h3>
+                    <p class="text-neutral-300 mb-3">The rate limiter is applied as HTTP middleware.</p>
+                    <pre class="bg-black p-4 rounded text-sm text-neutral-300 overflow-x-auto"><code>limitedHandler := rateLimiterMiddleware(baseHandler)</code></pre>
+                    <p class="mt-3 text-neutral-400">Sets standard headers: <code class="bg-black px-2 py-1 rounded text-sm">X-RateLimit-Limit</code>, <code class="bg-black px-2 py-1 rounded text-sm">X-RateLimit-Remaining</code>, <code class="bg-black px-2 py-1 rounded text-sm">Retry-After</code></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- HTTP Behavior -->
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">HTTP Behavior</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Allowed -->
+                <div class="border border-green-900 rounded-lg p-6 bg-neutral-900">
+                    <h3 class="text-lg font-medium text-green-400 mb-3">✓ Allowed Request</h3>
+                    <pre class="bg-black p-4 rounded text-sm text-green-300"><code>HTTP 200 OK
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 7</code></pre>
+                </div>
+
+                <!-- Rate Limited -->
+                <div class="border border-red-900 rounded-lg p-6 bg-neutral-900">
+                    <h3 class="text-lg font-medium text-red-400 mb-3">✗ Rate Limited Request</h3>
+                    <pre class="bg-black p-4 rounded text-sm text-red-300"><code>HTTP 429 Too Many Requests
+Retry-After: 1
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 0</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Advantages & Limitations -->
+        <section class="grid md:grid-cols-2 gap-8">
+            <div>
+                <h2 class="text-2xl font-semibold text-white mb-4">Advantages</h2>
+                <ul class="space-y-2 text-neutral-300">
+                    <li>• In-memory and fast</li>
+                    <li>• Per-client isolation</li>
+                    <li>• Thread-safe with fine-grained locks</li>
+                    <li>• Deterministic token refill</li>
+                    <li>• Clean HTTP semantics</li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-2xl font-semibold text-white mb-4">Limitations</h2>
+                <ul class="space-y-2 text-neutral-400">
+                    <li>• Single-node only (no distributed coordination)</li>
+                    <li>• Resets on process restart</li>
+                    <li>• IP-based (can be spoofed without proper proxy config)</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- How to Run -->
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">How to Run</h2>
+            <pre class="bg-neutral-900 border border-neutral-800 p-6 rounded-lg text-neutral-300"><code>go run main.go</code></pre>
+            <p class="text-neutral-400 mt-4">Server starts on: <code class="bg-neutral-900 px-3 py-1 rounded border border-neutral-800">http://localhost:8080</code></p>
+        </section>
+
+        <!-- When to Use -->
+        <section class="bg-neutral-900 border border-neutral-800 rounded-lg p-8 text-center">
+            <h2 class="text-2xl font-semibold text-white mb-3">When to Use This</h2>
+            <p class="text-neutral-400 text-lg">Never (u have better options 😆)</p>
+        </section>
+
+        <!-- Final Note -->
+        <section class="border-t border-neutral-800 pt-8">
+            <h2 class="text-2xl font-semibold text-white mb-4">Final Note</h2>
+            <p class="text-neutral-300 leading-relaxed">
+                This project is meant to be <span class="text-white font-semibold">simple</span>.
+                It intentionally avoids frameworks and abstractions so the core rate-limiting logic is easy to reason about.
+                If you understand this implementation deeply, you understand the foundation of most production rate limiters.
+            </p>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-neutral-800 mt-16">
+        <div class="max-w-5xl mx-auto px-6 py-8 text-center text-neutral-500 text-sm">
+            <p>2025 @Apex Rate Limiter • PHILKHANA SIDHARTH</p>
+        </div>
+    </footer>
+</body>
+</html>
